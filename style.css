@@ -1,0 +1,17 @@
+html,
+body {
+  height: 100%;
+}
+
+#left-sidebar {
+  height: 100%;
+  overflow-y: auto;
+}
+
+#main {
+  height: 100%;
+}
+
+.xsm {
+  font-size: 0.72rem;
+}
