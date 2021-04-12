@@ -27,6 +27,11 @@ const gArrowheadsCfg = {
   size: '12px',
 };
 
+// delivery-request-src-loc, delivery-request-dst-loc, driver-request-loc
+var gPrevFocusLatLngInput = '';
+
+var gPreviousMetricResult = null;
+
 var gBtnAddDeliveryRequestClickCnt = 0;
 var gBtnAddDriverRequestClickCnt = 0;
 
@@ -65,6 +70,16 @@ gMap.on('contextmenu', function (e) {
   gSelectedLatLngMaker = L.marker(latlng).addTo(gMap);
   $('#selected-lat').val(latlng.lat);
   $('#selected-lng').val(latlng.lng);
+  if (gPrevFocusLatLngInput === 'delivery-request-src-loc') {
+    $('#delivery-request-src-lat').val(latlng.lat);
+    $('#delivery-request-src-lng').val(latlng.lng);
+  } else if (gPrevFocusLatLngInput === 'delivery-request-dst-loc') {
+    $('#delivery-request-dst-lat').val(latlng.lat);
+    $('#delivery-request-dst-lng').val(latlng.lng);
+  } else if (gPrevFocusLatLngInput === 'driver-request-loc') {
+    $('#driver-request-loc-lat').val(latlng.lat);
+    $('#driver-request-loc-lng').val(latlng.lng);
+  }
 });
 
 gMap.on('mousemove', function (e) {
@@ -75,6 +90,23 @@ gMap.on('mousemove', function (e) {
 
 $('.dtp').datetimepicker({
   format: 'd/m/Y H:i:s',
+});
+
+$('input').on('focus', function () {
+  const id = $(this).attr('id');
+  if (id === 'delivery-request-src-lat' || id === 'delivery-request-src-lng') {
+    gPrevFocusLatLngInput = 'delivery-request-src-loc';
+  } else if (
+    id === 'delivery-request-dst-lat' ||
+    id === 'delivery-request-dst-lng'
+  ) {
+    gPrevFocusLatLngInput = 'delivery-request-dst-loc';
+  } else if (
+    id === 'driver-request-loc-lat' ||
+    id === 'driver-request-loc-lng'
+  ) {
+    gPrevFocusLatLngInput = 'driver-request-loc';
+  }
 });
 
 $('#cb-show-simulation-request').on('click', function () {
@@ -112,13 +144,9 @@ $('#btn-submit-simulation-request').on('click', function () {
 $('#btn-add-delivery-request').on('click', function () {
   request = {
     uuid: uuidv4(),
-    name:
-      'Delivery Request ' +
-      String.fromCharCode('A'.charCodeAt(0) + gBtnAddDeliveryRequestClickCnt),
+    name: 'Delivery Request ' + +gBtnAddDeliveryRequestClickCnt,
     goodsMetadata: {
-      name:
-        'Goods ' +
-        String.fromCharCode('A'.charCodeAt(0) + gBtnAddDeliveryRequestClickCnt),
+      name: 'Goods ' + gBtnAddDeliveryRequestClickCnt,
       weight: parseFloat($('#delivery-request-goods-weight').val()),
       length: parseFloat($('#delivery-request-goods-length').val()),
       width: parseFloat($('#delivery-request-goods-width').val()),
@@ -158,9 +186,7 @@ $('#btn-add-delivery-request').on('click', function () {
 $('#btn-add-driver-request').on('click', function () {
   request = {
     uuid: uuidv4(),
-    name:
-      'Driver ' +
-      String.fromCharCode('A'.charCodeAt(0) + gBtnAddDriverRequestClickCnt),
+    name: 'Driver ' + gBtnAddDriverRequestClickCnt,
     vehicleCapacity: {
       weight: parseInt($('#driver-request-vc-weight').val()),
       length: parseInt($('#driver-request-vc-length').val()),
@@ -181,6 +207,20 @@ $('#btn-add-driver-request').on('click', function () {
 
 $('#simulation-request-json').on('input', function () {
   updateSimulationRequestRendering();
+});
+
+$('#cb-support-retracement').on('click', function () {
+  gSimulationRequest.supportRetracement = $(this).is(':checked');
+  $('#simulation-request-json').val(
+    JSON.stringify(gSimulationRequest, null, 2)
+  );
+});
+
+$('#cb-alternative-driver-matching').on('click', function () {
+  gSimulationRequest.useAlternativeForDriverMatching = $(this).is(':checked');
+  $('#simulation-request-json').val(
+    JSON.stringify(gSimulationRequest, null, 2)
+  );
 });
 
 function createRouteAccordionElement(uuid, routingDetails) {
@@ -285,6 +325,156 @@ function createRouteAccordionElement(uuid, routingDetails) {
   return wrapper;
 }
 
+function createMetricCard(headerText, result) {
+  let card = $('<div>', {
+    class: 'card',
+  });
+  let cardHeader = $('<div>', {
+    class: 'card-header',
+  }).html(headerText);
+  let cardBody = $('<div>', {
+    class: 'card-body p-0',
+  });
+  cardBody
+    .append(
+      $('<p>', { class: 'mx-2' }).html(
+        'Num of delivery requests: ' + result.numOfDeliveryRequests
+      )
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html('Num of drivers: ' + result.numOfDrivers)
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html('Num of served requests: ' + result.numOfServedRequests)
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html(
+        'Percentage of served requests: ' +
+          (
+            (result.numOfServedRequests / result.numOfDeliveryRequests) *
+            100
+          ).toFixed(2) +
+          '%'
+      )
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html(
+        'Average of served requests per driver: ' +
+          (result.numOfServedRequests / result.numOfDrivers).toFixed(3)
+      )
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html(
+        'Average wait time for served requests: ' +
+          (result.sumOftotalWaitTime / result.numOfServedRequests).toFixed(1) +
+          ' seconds'
+      )
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html(
+        'Maximum wait time for a specific request: ' +
+          result.maxTotalWaitTime +
+          ' seconds'
+      )
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html(
+        'Average time to serve a request: ' +
+          (result.sumTotalTimeSpent / result.numOfServedRequests).toFixed(1) +
+          ' seconds'
+      )
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html(
+        'Average distance to serve a request: ' +
+          (result.sumOfTotalDistance / result.numOfServedRequests).toFixed(3) +
+          ' km'
+      )
+    )
+    .append(
+      $('<p>', {
+        class: 'mx-2',
+      }).html(
+        'S.D. for num of served requests per driver: ' +
+          result.numOfServedRequestsSD.toFixed(2)
+      )
+    );
+  return card.append(cardHeader).append(cardBody);
+}
+
+function getMetricResult(simulationResp) {
+  const numOfDeliveryRequests = Object.keys(
+    simulationResp.deliveryRequestResultDetailsByUuid
+  ).length;
+  let numOfServedRequests = 0;
+  let sumOftotalWaitTime = 0;
+  let maxTotalWaitTime = 0;
+  for (var uuid in simulationResp.deliveryRequestResultDetailsByUuid) {
+    if (
+      simulationResp.deliveryRequestResultDetailsByUuid.hasOwnProperty(uuid)
+    ) {
+      const requestResultDetails =
+        simulationResp.deliveryRequestResultDetailsByUuid[uuid];
+      if (requestResultDetails.isBeingServed) {
+        numOfServedRequests++;
+        sumOftotalWaitTime += parseInt(requestResultDetails.totalWaitTime);
+        if (requestResultDetails.totalWaitTime > maxTotalWaitTime) {
+          maxTotalWaitTime = requestResultDetails.totalWaitTime;
+        }
+      }
+    }
+  }
+
+  const numOfDrivers = Object.keys(simulationResp.driverRoutingDetailsByUuid)
+    .length;
+  let sumOfTotalDistance = 0;
+  let sumTotalTimeSpent = 0;
+  let numOfServedRequestsArr = [];
+  for (var uuid in simulationResp.driverRoutingDetailsByUuid) {
+    if (simulationResp.driverRoutingDetailsByUuid.hasOwnProperty(uuid)) {
+      const routingDetails = simulationResp.driverRoutingDetailsByUuid[uuid];
+      sumOfTotalDistance += routingDetails.totalDistance;
+      sumTotalTimeSpent += parseInt(routingDetails.totalTimeSpent);
+      numOfServedRequestsArr.push(routingDetails.numOfServedRequests);
+    }
+  }
+
+  return {
+    numOfDeliveryRequests: numOfDeliveryRequests,
+    numOfDrivers: numOfDrivers,
+    numOfServedRequests: numOfServedRequests,
+    sumOftotalWaitTime: sumOftotalWaitTime,
+    maxTotalWaitTime: maxTotalWaitTime,
+    sumOfTotalDistance: sumOfTotalDistance,
+    sumTotalTimeSpent: sumTotalTimeSpent,
+    numOfServedRequestsSD: getStandardDeviation(numOfServedRequestsArr),
+  };
+}
+
+function getStandardDeviation(array) {
+  const n = array.length;
+  const mean = array.reduce((a, b) => a + b) / n;
+  return Math.sqrt(
+    array.map((x) => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n
+  );
+}
+
 function createRoutingDetailsCard(uuid, routingDetails) {
   let card = $('<div>', {
     class: 'card',
@@ -369,6 +559,8 @@ function handleSimulationRequest(simulationRequest) {
     .then((resp) => {
       if (resp.ok) {
         $('#wrapper-driver-routing-details').empty();
+        $('#wrapper-delivery-request-result-details').empty();
+        $('#wrapper-metric').empty();
         $('#select-show-routes-option').empty();
 
         if (gSimulationResponseLayerByDriverUUID !== null) {
@@ -440,6 +632,17 @@ function handleSimulationRequest(simulationRequest) {
         $('#wrapper-delivery-request-result-details').append(
           ...requestCardElements
         );
+
+        let metricResult = getMetricResult(simulationResponse);
+        $('#wrapper-metric').append(
+          createMetricCard('Current result', metricResult)
+        );
+        if (gPreviousMetricResult !== null) {
+          $('#wrapper-metric').append(
+            createMetricCard('Previous result', gPreviousMetricResult)
+          );
+        }
+        gPreviousMetricResult = metricResult;
 
         setupRouteBodyOnClickEvents(
           simulationResponse.driverRoutingDetailsByUuid
@@ -529,6 +732,14 @@ function updateSimulationRequestRendering() {
     if (gSimulationRequest.driverRequests === undefined) {
       gSimulationRequest.driverRequests = [];
     }
+    $('#cb-support-retracement').prop(
+      'checked',
+      gSimulationRequest.supportRetracement
+    );
+    $('#cb-alternative-driver-matching').prop(
+      'checked',
+      gSimulationRequest.useAlternativeForDriverMatching
+    );
   } catch (e) {
     gSimulationRequest = getDefaultEmptySimulationRequest();
     return;
@@ -750,5 +961,7 @@ function getDefaultEmptySimulationRequest() {
   return {
     deliveryRequests: [],
     driverRequests: [],
+    useAlternativeForDriverMatching: false,
+    supportRetracement: false,
   };
 }
