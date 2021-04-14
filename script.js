@@ -28,7 +28,7 @@ const gSupportedIconColor = [
   '#009999',
   '#004C99',
   '#000099',
-  '#4C0099', 
+  '#4C0099',
   '#990099',
   '#99004C',
   '#404040',
@@ -243,6 +243,13 @@ $('#cb-support-retracement').on('click', function () {
 
 $('#cb-alternative-driver-matching').on('click', function () {
   gSimulationRequest.useAlternativeForDriverMatching = $(this).is(':checked');
+  $('#simulation-request-json').val(
+    JSON.stringify(gSimulationRequest, null, 2)
+  );
+});
+
+$('#simulation-request-created-at').on('change', function () {
+  gSimulationRequest.createdAt = getDateTimeUTCFormatStr($(this).val());
   $('#simulation-request-json').val(
     JSON.stringify(gSimulationRequest, null, 2)
   );
@@ -988,5 +995,6 @@ function getDefaultEmptySimulationRequest() {
     driverRequests: [],
     useAlternativeForDriverMatching: false,
     supportRetracement: false,
+    createdAt: dayjs('1970-01-01T00:00:00.000Z').utc().format(),
   };
 }
